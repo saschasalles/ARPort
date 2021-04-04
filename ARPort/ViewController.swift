@@ -23,25 +23,28 @@ class ViewController: UIViewController, ARSCNViewDelegate {
 
   // MARK: - Properties
   var trackingStatus: String = ""
-  var statusMessage: String  = ""
+  var statusMessage: String = ""
   var appState: AppState = .detectSurface
 
   // MARK: - IB Outlets
+
   @IBOutlet var sceneView: ARSCNView!
   @IBOutlet weak var statusLabel: UILabel!
   @IBOutlet weak var resetButton: UIButton!
 
   // MARK: - IB Actions
   @IBAction func resetButtonPressed(_ sender: Any) {
-    
+    self.resetARSession()
   }
 
   @IBAction func tapGestureHandler(_ sender: Any) {
   }
 
   override func viewDidLoad() {
+    self.resetButton.layer.cornerRadius = 8
     super.viewDidLoad()
     self.initScene()
+    self.initARSession()
   }
 
   override func viewWillAppear(_ animated: Bool) {
@@ -74,7 +77,7 @@ extension ViewController {
 
   func resetApp() {
     DispatchQueue.main.async {
-      //self.resetARSession()
+      self.resetARSession()
       self.appState = .detectSurface
     }
   }
@@ -90,9 +93,64 @@ extension ViewController {
 
 // MARK: - AR Session Management (ARSCNViewDelegate)
 extension ViewController {
+  func initARSession() {
+    guard ARWorldTrackingConfiguration.isSupported else {
+      let alert = UIAlertController(title: "Tracking Issue", message: "Damn AR World Tracking Not Supported on your device", preferredStyle: .alert)
+      alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+      present(alert, animated: true, completion: nil)
 
-  // Add code here...
+      return
+    }
 
+    let config = ARWorldTrackingConfiguration()
+    config.worldAlignment = .gravity
+    config.providesAudioData = false
+    config.planeDetection = .horizontal
+    config.isLightEstimationEnabled = true
+    config.environmentTexturing = .automatic
+
+    sceneView.session.run(config)
+  }
+
+  func resetARSession() {
+    let config = sceneView.session.configuration as! ARWorldTrackingConfiguration
+    config.planeDetection = .horizontal
+    sceneView.session.run(config, options: [.resetTracking, .removeExistingAnchors])
+  }
+
+  func session(_ session: ARSession, cameraDidChangeTrackingState camera: ARCamera) {
+    switch camera.trackingState {
+    case .notAvailable:
+      self.trackingStatus = "Tracking: not available"
+    case .normal:
+      self.trackingStatus = ""
+    case .limited(let reason):
+      switch reason {
+      case .excessiveMotion:
+        self.trackingStatus = "Tracking: Limited due to excessive motion!"
+      case .insufficientFeatures:
+        self.trackingStatus = "Tracking: Limited due to insufficient features"
+      case .relocalizing:
+        self.trackingStatus = "Tracking: Relocalizing..."
+      case .initializing:
+        self.trackingStatus = "Tracking: Initializing..."
+      @unknown default:
+        self.trackingStatus = "Tracking: Unknown"
+      }
+    }
+  }
+
+  func session(_ session: ARSession, didFailWithError error: Error) {
+    self.trackingStatus = "AR Session Failure: \(error)"
+  }
+
+  func sessionWasInterrupted(_ session: ARSession) {
+    self.trackingStatus = "AR Session was interrupted"
+  }
+
+  func sessionInterruptionEnded(_ session: ARSession) {
+    self.trackingStatus = "AR Session interruption ended"
+  }
 }
 
 // MARK: - Scene Management
