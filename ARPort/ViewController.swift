@@ -86,6 +86,8 @@ extension ViewController {
     DispatchQueue.main.async {
       self.appState = .detectSurface
     }
+    self.arPortNode.isHidden = true
+    self.focusNode.isHidden = true
   }
 
   func resetApp() {
@@ -93,6 +95,7 @@ extension ViewController {
       self.resetARSession()
       self.appState = .detectSurface
     }
+    self.arPortNode.isHidden = true
   }
 
 }
@@ -209,6 +212,18 @@ extension ViewController {
 
     arPortNode.isHidden = true
     sceneView.scene.rootNode.addChildNode(arPortNode)
+
+    // Debug options (delete ca en prod bg)
+    sceneView.showsStatistics = true
+
+//    sceneView.debugOptions = [
+//      .showFeaturePoints,
+//      .showCreases,
+//      .showWorldOrigin,
+//      .showBoundingBoxes,
+//      .showWireframe
+//    ]
+
   }
 
   func updateStatus() {
@@ -233,6 +248,22 @@ extension ViewController {
     }
   }
 
+  override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+    DispatchQueue.main.async {
+      if let touchLocation = touches.first?.location(in: self.sceneView) {
+        if let hit = self.sceneView.hitTest(touchLocation, options: nil).first {
+          if hit.node.name == "Touch" {
+            let billboardNode = hit.node.childNode(withName: "Billboard", recursively: false)
+            billboardNode?.isHidden = false
+          }
+
+          if hit.node.name == "Billboard" {
+            hit.node.isHidden = true
+          }
+        }
+      }
+    }
+  }
 }
 
 // MARK: - Focus Node Management
