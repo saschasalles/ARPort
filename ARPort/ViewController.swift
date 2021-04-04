@@ -25,6 +25,9 @@ class ViewController: UIViewController {
   var trackingStatus: String = ""
   var statusMessage: String = ""
   var appState: AppState = .detectSurface
+  var focusPoint: CGPoint!
+  var focusNode: SCNNode!
+  var arPortNode: SCNNode!
 
   // MARK: - IB Outlets
 
@@ -38,6 +41,13 @@ class ViewController: UIViewController {
   }
 
   @IBAction func tapGestureHandler(_ sender: Any) {
+    guard appState == .tapToStart else { return }
+
+    self.arPortNode.isHidden = false
+    self.focusNode.isHidden = true
+    self.arPortNode.position = self.focusNode.position
+
+    appState = .started
   }
 
   override func viewDidLoad() {
@@ -47,6 +57,7 @@ class ViewController: UIViewController {
     self.initARSession()
 
     self.initCoachingOverlayView()
+    self.initFocusNode()
   }
 
   override func viewWillAppear(_ animated: Bool) {
@@ -192,6 +203,12 @@ extension ViewController {
     let scene = SCNScene()
     sceneView.scene = scene
     sceneView.delegate = self
+
+    let arPortScene = SCNScene(named: "art.scnassets/Scenes/ARPortScene.scn")!
+    arPortNode = arPortScene.rootNode.childNode(withName: "ARPort", recursively: false)!
+
+    arPortNode.isHidden = true
+    sceneView.scene.rootNode.addChildNode(arPortNode)
   }
 
   func updateStatus() {
@@ -212,6 +229,7 @@ extension ViewController {
   func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
     DispatchQueue.main.async {
       self.updateStatus()
+      self.updateFocusNode()
     }
   }
 
@@ -219,7 +237,45 @@ extension ViewController {
 
 // MARK: - Focus Node Management
 extension ViewController {
+  func initFocusNode() {
+    let focusScene = SCNScene(named: "art.scnassets/Scenes/FocusScene.scn")!
 
-  // Add code here...
+    focusNode = focusScene.rootNode.childNode(withName: "Focus", recursively: false)!
+    focusNode.isHidden = true
+    sceneView.scene.rootNode.addChildNode(focusNode)
 
+    focusPoint = CGPoint(x: view.center.x, y: view.center.y + view.center.y * 0.1)
+
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(self.orientationChanged),
+      name: UIDevice.orientationDidChangeNotification,
+      object: nil)
+  }
+
+  @objc func orientationChanged() {
+    focusPoint = CGPoint(x: view.center.x, y: view.center.y + view.center.y * 0.1)
+  }
+
+  func updateFocusNode() {
+    guard appState != .started else {
+      focusNode.isHidden = true
+      return
+    }
+
+    if let query = self.sceneView.raycastQuery(from: self.focusPoint, allowing: .estimatedPlane, alignment: .horizontal) {
+      let results = self.sceneView.session.raycast(query)
+      if results.count == 1 {
+        if let match = results.first {
+          let t = match.worldTransform
+          self.focusNode.position = SCNVector3(x: t.columns.3.x, y: t.columns.3.y, z: t.columns.3.z)
+          self.appState = .tapToStart
+          focusNode.isHidden = false
+        } else {
+          self.appState = .pointAtSurface
+          focusNode.isHidden = true
+        }
+      }
+    }
+  }
 }
