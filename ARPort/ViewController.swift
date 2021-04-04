@@ -19,7 +19,7 @@ enum AppState: Int16 {
 
 // MARK: - UIViewController
 
-class ViewController: UIViewController, ARSCNViewDelegate {
+class ViewController: UIViewController {
 
   // MARK: - Properties
   var trackingStatus: String = ""
@@ -45,6 +45,8 @@ class ViewController: UIViewController, ARSCNViewDelegate {
     super.viewDidLoad()
     self.initScene()
     self.initARSession()
+
+    self.initCoachingOverlayView()
   }
 
   override func viewWillAppear(_ animated: Bool) {
@@ -85,14 +87,45 @@ extension ViewController {
 }
 
 // MARK: - AR Coaching Overlay
-extension ViewController {
+extension ViewController: ARCoachingOverlayViewDelegate {
+  func coachingOverlayViewWillActivate(_ coachingOverlayView: ARCoachingOverlayView) {
+    //
+  }
 
-  // Add code here...
+  func coachingOverlayViewDidDeactivate(_ coachingOverlayView: ARCoachingOverlayView) {
+    self.startApp()
+  }
 
+  func coachingOverlayViewDidRequestSessionReset(_ coachingOverlayView: ARCoachingOverlayView) {
+    self.resetApp()
+  }
+
+
+  // Helpers
+
+  func initCoachingOverlayView() {
+    let coachingOverlay = ARCoachingOverlayView()
+    coachingOverlay.session = self.sceneView.session
+    coachingOverlay.delegate = self
+    coachingOverlay.activatesAutomatically = true
+    coachingOverlay.goal = .horizontalPlane
+    self.sceneView.addSubview(coachingOverlay)
+
+    coachingOverlay.translatesAutoresizingMaskIntoConstraints = false
+    NSLayoutConstraint.activate([
+      NSLayoutConstraint(item: coachingOverlay, attribute: .top, relatedBy: .equal, toItem: self.view, attribute: .top, multiplier: 1, constant: 0),
+      NSLayoutConstraint(item: coachingOverlay, attribute: .bottom, relatedBy: .equal, toItem: self.view, attribute: .bottom, multiplier: 1, constant: 0),
+      NSLayoutConstraint(item: coachingOverlay, attribute: .leading, relatedBy: .equal, toItem: self.view, attribute: .leading, multiplier: 1, constant: 0),
+      NSLayoutConstraint(item: coachingOverlay, attribute: .trailing, relatedBy: .equal, toItem: self.view, attribute: .trailing, multiplier: 1, constant: 0),
+    ])
+
+  }
 }
 
+
+
 // MARK: - AR Session Management (ARSCNViewDelegate)
-extension ViewController {
+extension ViewController: ARSCNViewDelegate {
   func initARSession() {
     guard ARWorldTrackingConfiguration.isSupported else {
       let alert = UIAlertController(title: "Tracking Issue", message: "Damn AR World Tracking Not Supported on your device", preferredStyle: .alert)
